@@ -24,21 +24,22 @@ the API key and forwards the request — the browser must never carry the key it
 
 ## Plant images
 
-Three keyless, CORS-enabled sources are tried in order, each with both the
-model-supplied search term and the botanical name:
+Inside the artifact there are none, and this is not fixable from the code.
 
-1. Wikipedia article lead image — exact title first, then a site search
-2. Wikimedia Commons file search, filtered to photographs
-3. iNaturalist taxon photo
+Tested on 2026-08-16: the artifact sandbox reaches `api.anthropic.com` and
+nothing else. Wikipedia, Wikimedia Commons and iNaturalist were all refused, and
+a remote `<img>` failed to load as well. Lookups against those sources were
+removed rather than left in as dead code.
 
-The first hit wins; a failing source never blocks the next. The caption under
-the image names the source that answered, which doubles as a diagnostic when no
-image appears.
+What remains costs no request of its own: the datasheet response carries a
+`commonsFile` field, and `Special:FilePath` redirects a bare file name to the
+image. It renders the leaf placeholder today and would start working by itself
+if the sandbox ever permitted remote images. Images are otherwise a reason to
+leave the artifact for a hosted app, not a problem to solve inside it.
 
-Google Images is deliberately not among them. Its only official API needs a paid
-key that a browser cannot hold safely, and Google indexes third-party pictures it
-holds no right to sublicence — a credit line is not a licence. The three sources
-above carry explicit free licences.
+Google Images is not an option at any point: its only official API needs a paid
+key that a browser cannot hold safely, and it indexes third-party pictures it
+holds no right to sublicence — a credit line is not a licence.
 
 ## Markdown export
 
