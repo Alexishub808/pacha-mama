@@ -22,6 +22,24 @@ the API key and forwards the request — the browser must never carry the key it
 |------|---------|
 | `src/PachaMama.jsx` | The complete component — UI, Claude call, Wikipedia image lookup, Markdown export |
 
+## Plant images
+
+Three keyless, CORS-enabled sources are tried in order, each with both the
+model-supplied search term and the botanical name:
+
+1. Wikipedia article lead image — exact title first, then a site search
+2. Wikimedia Commons file search, filtered to photographs
+3. iNaturalist taxon photo
+
+The first hit wins; a failing source never blocks the next. The caption under
+the image names the source that answered, which doubles as a diagnostic when no
+image appears.
+
+Google Images is deliberately not among them. Its only official API needs a paid
+key that a browser cannot hold safely, and Google indexes third-party pictures it
+holds no right to sublicence — a credit line is not a licence. The three sources
+above carry explicit free licences.
+
 ## Markdown export
 
 The export dialog opens with the full Markdown text pre-selected, so `Ctrl+C` alone

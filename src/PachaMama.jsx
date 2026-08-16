@@ -33,13 +33,72 @@ Rules:
   catch { return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1")); }
 }
 
-async function getWikiImage(term) {
-  try {
-    const r = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(term)}&prop=pageimages&format=json&pithumbsize=400&origin=*`);
+// ── Plant image lookup ──────────────────────────────────────────────────────
+// Only sources with an explicit free licence. Google Images is not one: it
+// indexes third-party pictures it has no right to sublicence, and its only
+// official API needs a paid key that a browser cannot hold safely.
+// Every source below is keyless and CORS-enabled (origin=* on the MediaWiki
+// endpoints is what makes them answer a cross-origin browser request).
+
+const PHOTO_EXT = /\.(jpe?g|png)$/i;
+
+// 1. The lead image of the Wikipedia article.
+async function wikipediaImage(term) {
+  for (const q of [
+    `action=query&titles=${encodeURIComponent(term)}`,
+    `action=query&generator=search&gsrlimit=3&gsrsearch=${encodeURIComponent(term)}`,
+  ]) {
+    const r = await fetch(`https://en.wikipedia.org/w/api.php?format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=500&${q}`);
     const d = await r.json();
-    const page = Object.values(d?.query?.pages || {})[0];
-    return page?.thumbnail?.source || null;
-  } catch { return null; }
+    for (const p of Object.values(d?.query?.pages || {})) {
+      if (p?.thumbnail?.source) return { src: p.thumbnail.source, credit: "© Wikipedia" };
+    }
+  }
+  return null;
+}
+
+// 2. Wikimedia Commons — has photos for species whose article lacks one.
+//    Namespace 6 is the file namespace; drop drawings, maps and diagrams.
+async function commonsImage(term) {
+  const r = await fetch(`https://commons.wikimedia.org/w/api.php?format=json&origin=*&action=query&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch=${encodeURIComponent(term)}&prop=imageinfo&iiprop=url&iiurlwidth=500`);
+  const d = await r.json();
+  for (const p of Object.values(d?.query?.pages || {})) {
+    const info = p?.imageinfo?.[0];
+    if (info?.thumburl && PHOTO_EXT.test(info.url || "")) {
+      return { src: info.thumburl, credit: "© Wikimedia Commons" };
+    }
+  }
+  return null;
+}
+
+// 3. iNaturalist — observation photos, CC-licensed, photographer named in
+//    the attribution string the API returns.
+async function inaturalistImage(term) {
+  const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(term)}&per_page=3`);
+  const d = await r.json();
+  for (const t of d?.results || []) {
+    const photo = t?.default_photo;
+    if (photo?.medium_url || photo?.url) {
+      const credit = (photo.attribution || "iNaturalist").replace(/\s*\(c\)\s*/i, "© ");
+      return { src: photo.medium_url || photo.url, credit: credit.slice(0, 70) };
+    }
+  }
+  return null;
+}
+
+// Tries every source with every candidate name and returns the first hit.
+// A failing source must never block the next one.
+async function getPlantImage(term, latin) {
+  const candidates = [...new Set([term, latin].filter(Boolean))];
+  for (const source of [wikipediaImage, commonsImage, inaturalistImage]) {
+    for (const c of candidates) {
+      try {
+        const hit = await source(c);
+        if (hit?.src) return hit;
+      } catch { /* try the next combination */ }
+    }
+  }
+  return null;
 }
 
 function buildMarkdown(d) {
@@ -94,22 +153,29 @@ function Tip({ text }) {
   );
 }
 
-function PlantImg({ term }) {
-  const [src, setSrc] = useState(null);
+function PlantImg({ term, latin }) {
+  const [img, setImg] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ok | none
   useEffect(() => {
     let alive = true;
-    setSrc(null);
-    getWikiImage(term).then(url => { if (alive) setSrc(url); });
+    setImg(null);
+    setState("loading");
+    getPlantImage(term, latin).then(hit => {
+      if (!alive) return;
+      setImg(hit);
+      setState(hit ? "ok" : "none");
+    });
     return () => { alive = false; };
-  }, [term]);
+  }, [term, latin]);
   const base = { width:"100%", aspectRatio:"3/4", borderRadius:6, border:`1px solid ${C.border}` };
+  const caption = state === "ok" ? img.credit : state === "none" ? "kein Bild gefunden" : "";
   return (
     <div style={{ width:130, flexShrink:0 }}>
-      {src
-        ? <img src={src} alt="" style={{ ...base, objectFit:"cover", display:"block" }} />
-        : <div style={{ ...base, background:C.parchment, display:"flex", alignItems:"center", justifyContent:"center", fontSize:34 }}>🌿</div>
+      {img
+        ? <img src={img.src} alt={latin || ""} onError={() => { setImg(null); setState("none"); }} style={{ ...base, objectFit:"cover", display:"block" }} />
+        : <div style={{ ...base, background:C.parchment, display:"flex", alignItems:"center", justifyContent:"center", fontSize:34, opacity: state==="loading" ? 0.45 : 1 }}>🌿</div>
       }
-      {src && <div style={{ fontSize:10, color:"#9a8a72", textAlign:"center", marginTop:3, fontStyle:"italic", fontFamily:"system-ui,sans-serif" }}>© Wikimedia</div>}
+      <div title={caption} style={{ fontSize:10, color:"#9a8a72", textAlign:"center", marginTop:3, fontStyle:"italic", fontFamily:"system-ui,sans-serif", minHeight:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{caption}</div>
     </div>
   );
 }
@@ -317,7 +383,7 @@ export default function PachaMama() {
 
             {/* Hero */}
             <div style={{ display:"flex", gap:18, alignItems:"flex-start", background:"linear-gradient(135deg,#fff 55%,#ccdcc4 100%)", border:`1px solid ${C.border}`, borderRadius:10, padding:18, marginBottom:14, boxShadow:"0 2px 10px rgba(30,20,8,.05)" }}>
-              <PlantImg term={result.wikiSearch || result.latinName} />
+              <PlantImg term={result.wikiSearch} latin={result.latinName} />
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontStyle:"italic", fontWeight:700, fontSize:"clamp(1.3rem,3vw,1.85rem)", color:C.moss, lineHeight:1.2 }}>{result.latinName}</div>
                 {result.commonName && <div style={{ fontSize:14, color:C.rust, marginTop:3, fontFamily:"system-ui,sans-serif" }}>{result.commonName}</div>}
