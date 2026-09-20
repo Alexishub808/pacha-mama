@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pacha Mama — Botanisches Pflanzenlexikon</title>
+<style>
+:root{
+  --moss:#3a5c2a; --sage:#6e9060; --rust:#7a3a18;
+  --cream:#f8f3ea; --parchment:#ede4ce; --border:#ddd5bc; --earth:#1e1408;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--cream);color:var(--earth);min-height:100vh;padding-bottom:56px}
+img{max-width:100%}
+
+header{text-align:center;padding:32px 20px 24px;border-bottom:1px solid var(--border);margin-bottom:24px}
+.eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--sage);font-family:system-ui,sans-serif;margin-bottom:5px}
+h1{font-size:clamp(2.6rem,7vw,4.2rem);font-weight:700;color:var(--moss);line-height:1;letter-spacing:-.02em}
+.tagline{font-style:italic;font-size:14px;color:var(--rust);margin-top:5px}
+
+.wrap{max-width:800px;margin:0 auto;padding:0 16px}
+
+/* API key */
+.keybox{background:var(--parchment);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:18px}
+.keybox label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);font-family:system-ui,sans-serif;margin-bottom:6px}
+.keyrow{display:flex;gap:8px}
+.keybox input{flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:9px 11px;font-family:monospace;font-size:13px;background:#fff;color:var(--earth);outline:none}
+.keybox input:focus{border-color:var(--moss)}
+.keybox button{border:1px solid var(--border);background:#fff;color:var(--sage);border-radius:6px;padding:0 12px;font-family:system-ui,sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.keybox small{display:block;margin-top:6px;font-size:11px;color:#9a7a40;font-family:system-ui,sans-serif}
+.keybox small a{color:var(--moss)}
+
+/* search */
+.searchbar{display:flex;border:2px solid var(--moss);border-radius:6px;overflow:hidden;background:#fff;box-shadow:0 4px 18px rgba(30,20,8,.08);margin-bottom:10px}
+.searchbar input{flex:1;min-width:0;border:none;outline:none;padding:12px 14px;font-family:Georgia,serif;font-style:italic;font-size:16px;color:var(--earth);background:transparent}
+.searchbar button{border:none;background:var(--moss);color:var(--cream);padding:0 22px;font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;cursor:pointer}
+.searchbar button:disabled{background:#aaa;cursor:default}
+
+.examples{font-size:12px;color:#8a7a60;margin-bottom:24px;font-family:system-ui,sans-serif}
+.ex{cursor:pointer;font-style:italic;color:var(--moss);border-bottom:1px dotted var(--sage);margin:0 4px}
+
+/* states */
+.spinner{text-align:center;padding:52px 0;color:var(--sage)}
+.ring{width:38px;height:38px;border:3px solid #ccdcc4;border-top-color:var(--moss);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.spinner span{font-style:italic;font-size:15px}
+
+.idle{text-align:center;padding:52px 16px;color:#9a8a70;font-family:system-ui,sans-serif}
+.idle .leaf{font-size:50px;opacity:.28;margin-bottom:12px}
+.idle h2{font-family:Georgia,serif;font-style:italic;font-size:18px;font-weight:400;color:var(--sage);margin-bottom:7px}
+.idle p{font-size:14px;max-width:360px;margin:0 auto;line-height:1.7}
+
+.err{background:#fdf0ee;border:1px solid #e0b0a0;border-radius:6px;padding:13px 16px;color:#8c2e18;font-size:14px;font-family:system-ui,sans-serif}
+
+.suggest{background:#fdf6e8;border:1px solid #e0d0a0;border-radius:10px;padding:18px 20px}
+.suggest h3{font-weight:700;font-size:15px;color:#7a5010;margin-bottom:4px;font-family:system-ui,sans-serif}
+.suggest p{font-size:13px;color:#9a7a40;font-style:italic;margin-bottom:12px;font-family:system-ui,sans-serif}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:13px;font-family:system-ui,sans-serif}
+.chip em{color:var(--moss);font-weight:700}
+.chip span{color:#8a7a60;margin-left:5px}
+
+/* result */
+.result{animation:fadeUp .4s ease both}
+.typo{background:#eef4fd;border:1px solid #b8cce8;border-radius:6px;padding:7px 14px;font-size:13px;color:#1a4a8c;margin-bottom:10px;font-family:system-ui,sans-serif}
+
+.hero{display:flex;gap:18px;align-items:flex-start;background:linear-gradient(135deg,#fff 55%,#ccdcc4 100%);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(30,20,8,.05)}
+@media(max-width:520px){.hero{flex-direction:column}}
+.imgbox{width:130px;flex-shrink:0}
+@media(max-width:520px){.imgbox{width:110px}}
+.imgbox img,.imgbox .ph{width:100%;aspect-ratio:3/4;border-radius:6px;border:1px solid var(--border);display:block}
+.imgbox img{object-fit:cover}
+.imgbox .ph{background:var(--parchment);display:flex;align-items:center;justify-content:center;font-size:34px}
+.imgbox .ph.loading{opacity:.45}
+.credit{font-size:10px;color:#9a8a72;text-align:center;margin-top:3px;font-style:italic;font-family:system-ui,sans-serif;min-height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.latin{font-style:italic;font-weight:700;font-size:clamp(1.3rem,3vw,1.85rem);color:var(--moss);line-height:1.2}
+.common{font-size:14px;color:var(--rust);margin-top:3px;font-family:system-ui,sans-serif}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.badge{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:system-ui,sans-serif}
+.b-green{background:#d4edcc;color:#1a5010}
+.b-red{background:#fad4cc;color:#7a1a0a}
+.b-amber{background:#faeacc;color:#7a4a0a}
+.b-blue{background:#ccdcf0;color:#0a2a6a}
+.b-gray{background:#e0dcd8;color:#3a3028}
+.overview{font-size:13px;line-height:1.75;color:#3a2c1a;margin-top:10px;font-family:system-ui,sans-serif}
+
+.tabbar{display:flex;align-items:center;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tabbtns{display:flex;flex:1;min-width:0;overflow-x:auto}
+.tab{border:none;background:none;cursor:pointer;padding:8px 14px;font-size:13px;font-family:system-ui,sans-serif;color:#8a7a60;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:400;white-space:nowrap}
+.tab.on{color:var(--moss);font-weight:700;border-bottom-color:var(--moss)}
+.exportbtn{border:1px solid var(--border);background:#fff;color:var(--sage);border-radius:6px;padding:5px 11px;font-size:12px;font-family:system-ui,sans-serif;font-weight:600;cursor:pointer;margin-bottom:2px;white-space:nowrap}
+
+.panel{display:none}
+.panel.on{display:block}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:12px}
+.card{background:var(--cream);border:1px solid var(--border);border-radius:6px;padding:8px 11px}
+.card .k{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);margin-bottom:3px;font-family:system-ui,sans-serif}
+.card .v{font-size:13px;font-weight:500;color:var(--earth);line-height:1.45;font-family:system-ui,sans-serif}
+
+.subhead{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin:14px 0 8px;font-family:system-ui,sans-serif}
+.nb{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:460px){.nb{grid-template-columns:1fr}}
+.nbcol{background:var(--parchment);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.nbitem{font-size:13px;line-height:1.8;font-family:system-ui,sans-serif}
+
+.tip{background:#eaf5e4;border-left:3px solid #8ab878;border-radius:0 6px 6px 0;padding:10px 13px;margin-top:10px;font-size:13px;font-style:italic;color:#2a5c1a;line-height:1.65;font-family:system-ui,sans-serif}
+.tip strong{font-style:normal;color:#3a6a28}
+
+.disclaimer{margin-top:24px;padding:11px 14px;background:var(--parchment);border-radius:6px;font-size:11px;color:#7a6a50;font-style:italic;text-align:center;line-height:1.65;font-family:system-ui,sans-serif}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:#fff;border-radius:10px;width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+.modal .head{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal .head .t{flex:1;font-weight:700;font-size:14px;color:var(--earth);font-family:system-ui,sans-serif}
+.modal .head button{border:1px solid var(--border);background:#fff;color:var(--sage);border-radius:6px;padding:5px 14px;font-size:12px;font-family:system-ui,sans-serif;font-weight:700;cursor:pointer;margin-right:8px;white-space:nowrap}
+.modal .head button.ok{background:#eaf5e4;color:#2a5c1a}
+.modal .head .x{border:none;background:none;font-size:18px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin:0}
+.modal .body{flex:1;min-height:0;padding:14px 18px;display:flex}
+.modal textarea{flex:1;width:100%;resize:none;border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:monospace;font-size:12px;line-height:1.6;color:#2a2a2a;background:#fbfaf7;outline:none}
+.modal .foot{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:11px;color:#8a7a60;font-family:system-ui,sans-serif;font-style:italic}
+.modal .foot button{border:1px solid var(--border);background:#fff;color:var(--sage);border-radius:6px;padding:4px 11px;font-size:11px;font-weight:700;font-style:normal;cursor:pointer;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Botanisches Pflanzenlexikon</div>
+  <h1>Pacha Mama</h1>
+  <div class="tagline">Mutter Erde flüstert — wir hören zu</div>
+</header>
+
+<div class="wrap">
+
+  <div class="keybox">
+    <label for="key">Anthropic API-Key</label>
+    <div class="keyrow">
+      <input id="key" type="password" placeholder="sk-ant-api03-…" autocomplete="off">
+      <button id="keysave" type="button">Merken</button>
+    </div>
+    <small>Wird nur lokal in diesem Browser gespeichert, nie irgendwohin gesendet ausser an Anthropic. → <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Key erstellen</a></small>
+  </div>
+
+  <div class="searchbar">
+    <input id="q" type="text" placeholder="z.B. Lavandula angustifolia …" autocomplete="off">
+    <button id="go" type="button">Erkunden</button>
+  </div>
+
+  <div class="examples">Beispiele: <span id="examples"></span></div>
+
+  <div id="out">
+    <div class="idle">
+      <div class="leaf">🌿</div>
+      <h2>Pflanzenwissen aus der Erde selbst</h2>
+      <p>Gib einen lateinischen Pflanzennamen ein und erhalte ein umfassendes Datenblatt.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ── Konstanten ───────────────────────────────────────────────────────────── */
+
+var EXAMPLES = ["Lavandula angustifolia","Rosa canina","Hedera helix","Atropa belladonna","Fagus sylvatica"];
+var PHOTO_EXT = /\.(jpe?g|png)$/i;
+var KEY_STORE = "pachamama.apikey";
+
+var out = document.getElementById("out");
+var qEl = document.getElementById("q");
+var goEl = document.getElementById("go");
+var keyEl = document.getElementById("key");
+var current = null;   // letztes Datenblatt, für den Export
+
+/* ── API-Key: lokal merken, rein optional ─────────────────────────────────── */
+
+try {
+  var saved = localStorage.getItem(KEY_STORE);
+  if (saved) keyEl.value = saved;
+} catch (e) { /* localStorage gesperrt — Key dann pro Sitzung eintippen */ }
+
+document.getElementById("keysave").addEventListener("click", function () {
+  var b = this;
+  var checked = cleanKey(keyEl.value);
+  if (checked.error) {
+    keyEl.value = "";
+    keyEl.focus();
+    setError(checked.error);
+    return;
+  }
+  keyEl.value = checked.key;
+  try {
+    if (checked.key) localStorage.setItem(KEY_STORE, checked.key);
+    else localStorage.removeItem(KEY_STORE);
+    b.textContent = "✓";
+  } catch (e) { b.textContent = "geht nicht"; }
+  setTimeout(function () { b.textContent = "Merken"; }, 1500);
+});
+
+/* ── API-Key säubern ───────────────────────────────────────────────────────────
+   Beim Kopieren aus einer Webseite reisen oft unsichtbare Zeichen mit:
+   geschütztes Leerzeichen, Null-Breite-Marke, Byte-Order-Mark. HTTP-Header
+   dürfen nur ASCII enthalten, sonst verweigert der Browser die Anfrage schon
+   vor dem Absenden. Also: alles Unsichtbare raus, Rest auf ASCII prüfen.   */
+
+function cleanKey(raw) {
+  var s = String(raw || "")
+    .replace(/[\s\u00A0\u1680\u2000-\u200D\u202F\u205F\u3000\uFEFF]/g, "")
+    .trim();
+  if (!s) return { key: "", error: "" };
+  if (!/^[\x21-\x7E]+$/.test(s)) {
+    return { key: "", error: "Der Key enthält ungültige Zeichen. Bitte direkt aus der Anthropic-Console kopieren und erneut einfügen." };
+  }
+  return { key: s, error: "" };
+}
+
+/* ── Escaping: jeder Modellwert geht durch esc(), bevor er ins DOM kommt ──── */
+
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+/* ── Datenblatt vom Modell holen ──────────────────────────────────────────── */
+
+async function askClaude(plantName, apiKey) {
+  var prompt =
+    'Plant datasheet for: "' + plantName + '"\n\n' +
+    'Return ONLY this JSON, all text values in German:\n' +
+    '{"found":true,"latinName":"correct latin name","commonName":"german name","typo":false,"suggestions":[],' +
+    '"badges":[{"label":"Winterhart","type":"blue"}],"overview":"2 sentences about origin and character.",' +
+    '"facts":{"Familie":"...","Wuchshoehe":"...","Lebensdauer":"...","Bluetezeit":"...","Winterhaerte":"...","Giftigkeit":"...","Verwendung":"..."},' +
+    '"neighbors":{"good":["plant a","plant b"],"bad":["plant x"]},' +
+    '"planting":{"boden":"...","standort":"...","pflanzzeit":"...","duengung":"...","tip":"one practical tip"},' +
+    '"care":{"giessen":"...","schnitt":"...","schaedlinge":"...","winter":"...","tip":"one practical tip"},' +
+    '"wikiSearch":"english wikipedia search term for plant image",' +
+    '"commonsFile":"file name of a photo of this plant on Wikimedia Commons"}\n\n' +
+    'Rules:\n' +
+    '- Typo but recognizable (e.g. lavandulla): found=true, typo=true, correct latinName\n' +
+    '- Unknown: found=false, suggestions=[{"latin":"...","german":"..."}] up to 5\n' +
+    '- Badge types: green, red, amber, blue, gray\n' +
+    '- commonsFile: the bare file name only, no "File:" prefix and no URL, e.g.\n' +
+    '  "Lavandula angustifolia - harilik lavendel.jpg". A photograph, not a drawing\n' +
+    '  or a map. Empty string if you are not confident the file exists.';
+
+  var res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: 2000,
+      system: "You are a botanical expert. Reply ONLY with a valid JSON object. No markdown, no backticks, no explanation text whatsoever.",
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+
+  var data = await res.json();
+  if (!res.ok) throw new Error((data.error && data.error.message) || ("HTTP " + res.status));
+
+  var text = data.content.map(function (b) { return b.text || ""; }).join("").trim();
+  var a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a === -1 || b === -1) throw new Error("Keine JSON-Antwort erhalten.");
+  var s = text.slice(a, b + 1);
+  try { return JSON.parse(s); }
+  catch (e) { return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1")); }
+}
+
+/* ── Bildsuche ────────────────────────────────────────────────────────────────
+   Nur Quellen mit ausdrücklich freier Lizenz. Google Images ist keine: der
+   Dienst indexiert fremde Bilder, an denen er keine Rechte weitergeben kann,
+   und die offizielle API braucht einen kostenpflichtigen Schlüssel, den ein
+   Browser nicht sicher halten kann.
+   Alle Quellen hier sind schlüsselfrei und CORS-fähig (origin=* auf den
+   MediaWiki-Endpunkten ist das, was die Anfrage aus dem Browser zulässt).   */
+
+// Stufe 0 — kein Lookup: Special:FilePath leitet einen blossen Commons-
+// Dateinamen auf das Bild um. Ein Dateiname aus der Modellantwort reicht.
+function commonsFileImage(file) {
+  if (!file) return null;
+  var clean = String(file).replace(/^file:/i, "").trim().replace(/ /g, "_");
+  if (!PHOTO_EXT.test(clean)) return null;
+  return {
+    src: "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(clean) + "?width=500",
+    credit: "© Wikimedia Commons"
+  };
+}
+
+// Stufe 1 — Artikelbild der englischen Wikipedia.
+async function wikipediaImage(term) {
+  var queries = [
+    "action=query&titles=" + encodeURIComponent(term),
+    "action=query&generator=search&gsrlimit=3&gsrsearch=" + encodeURIComponent(term)
+  ];
+  for (var i = 0; i < queries.length; i++) {
+    var r = await fetch("https://en.wikipedia.org/w/api.php?format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=500&" + queries[i]);
+    var d = await r.json();
+    var pages = (d && d.query && d.query.pages) || {};
+    for (var k in pages) {
+      if (pages[k] && pages[k].thumbnail && pages[k].thumbnail.source) {
+        return { src: pages[k].thumbnail.source, credit: "© Wikipedia" };
+      }
+    }
+  }
+  return null;
+}
+
+// Stufe 2 — Wikimedia Commons, für Arten ohne Artikelbild.
+// Namensraum 6 ist der Dateiraum; Zeichnungen, Karten, Diagramme fallen raus.
+async function commonsImage(term) {
+  var r = await fetch("https://commons.wikimedia.org/w/api.php?format=json&origin=*&action=query&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch=" + encodeURIComponent(term) + "&prop=imageinfo&iiprop=url&iiurlwidth=500");
+  var d = await r.json();
+  var pages = (d && d.query && d.query.pages) || {};
+  for (var k in pages) {
+    var info = pages[k] && pages[k].imageinfo && pages[k].imageinfo[0];
+    if (info && info.thumburl && PHOTO_EXT.test(info.url || "")) {
+      return { src: info.thumburl, credit: "© Wikimedia Commons" };
+    }
+  }
+  return null;
+}
+
+// Stufe 3 — iNaturalist, CC-lizenzierte Beobachtungsfotos, Fotograf steht
+// in der Attributionszeile, die die API mitliefert.
+async function inaturalistImage(term) {
+  var r = await fetch("https://api.inaturalist.org/v1/taxa?q=" + encodeURIComponent(term) + "&per_page=3");
+  var d = await r.json();
+  var list = (d && d.results) || [];
+  for (var i = 0; i < list.length; i++) {
+    var photo = list[i] && list[i].default_photo;
+    if (photo && (photo.medium_url || photo.url)) {
+      var credit = (photo.attribution || "iNaturalist").replace(/\s*\(c\)\s*/i, "© ");
+      return { src: photo.medium_url || photo.url, credit: credit.slice(0, 70) };
+    }
+  }
+  return null;
+}
+
+// Erst der Dateiname, dann die Lookup-Quellen mit jedem Namenskandidaten.
+// Eine scheiternde Quelle darf die nächste nie blockieren.
+async function getPlantImage(term, latin, commonsFile) {
+  var direct = commonsFileImage(commonsFile);
+  if (direct) return direct;
+
+  var candidates = [];
+  [term, latin].forEach(function (c) { if (c && candidates.indexOf(c) === -1) candidates.push(c); });
+
+  var sources = [wikipediaImage, commonsImage, inaturalistImage];
+  for (var i = 0; i < sources.length; i++) {
+    for (var j = 0; j < candidates.length; j++) {
+      try {
+        var hit = await sources[i](candidates[j]);
+        if (hit && hit.src) return hit;
+      } catch (e) { /* nächste Kombination */ }
+    }
+  }
+  return null;
+}
+
+/* ── Markdown ─────────────────────────────────────────────────────────────── */
+
+function buildMarkdown(d) {
+  var date = new Date().toLocaleDateString("de-DE", { year:"numeric", month:"long", day:"numeric" });
+  var badges = (d.badges || []).map(function (b) { return "`" + b.label + "`"; }).join(" ");
+  var facts = Object.keys(d.facts || {}).filter(function (k) { return d.facts[k]; })
+              .map(function (k) { return "| " + k + " | " + d.facts[k] + " |"; }).join("\n");
+  var nb = d.neighbors || {};
+  var good = (nb.good || []).map(function (p) { return "- ✓ " + p; }).join("\n") || "–";
+  var bad  = (nb.bad  || []).map(function (p) { return "- ✗ " + p; }).join("\n") || "–";
+  var pl = d.planting || {}, ca = d.care || {};
+
+  return "# *" + d.latinName + "*\n### " + (d.commonName || "") + "\n\n" +
+    badges + "\n\n> " + (d.overview || "") + "\n\n---\n\n" +
+    "## 📋 Botanisches Datenblatt\n\n| Eigenschaft | Wert |\n|-------------|------|\n" + facts + "\n\n---\n\n" +
+    "## 🌿 Nachbarschaft\n\n**Gute Nachbarn:**\n" + good + "\n\n**Schlechte Nachbarn:**\n" + bad + "\n\n---\n\n" +
+    "## 🌱 Pflanzen\n\n| | |\n|---|---|\n" +
+    "| **Boden** | " + (pl.boden || "–") + " |\n" +
+    "| **Standort** | " + (pl.standort || "–") + " |\n" +
+    "| **Pflanzzeit** | " + (pl.pflanzzeit || "–") + " |\n" +
+    "| **Düngung** | " + (pl.duengung || "–") + " |\n\n" +
+    "> 💡 " + (pl.tip || "–") + "\n\n---\n\n" +
+    "## 💧 Pflege\n\n| | |\n|---|---|\n" +
+    "| **Gießen** | " + (ca.giessen || "–") + " |\n" +
+    "| **Schnitt** | " + (ca.schnitt || "–") + " |\n" +
+    "| **Schädlinge** | " + (ca.schaedlinge || "–") + " |\n" +
+    "| **Überwinterung** | " + (ca.winter || "–") + " |\n\n" +
+    "> 💡 " + (ca.tip || "–") + "\n\n---\n\n" +
+    "*Erstellt mit Pacha Mama · " + date + "*\n";
+}
+
+/* ── Suche ────────────────────────────────────────────────────────────────── */
+
+function setLoading() {
+  out.innerHTML = '<div class="spinner"><div class="ring"></div><span>Pacha Mama konsultiert die Wurzeln …</span></div>';
+}
+function setError(msg) {
+  out.innerHTML = '<div class="err">⚠️ ' + esc(msg) + "</div>";
+}
+
+async function search(name) {
+  var q = (name || qEl.value || "").trim();
+  var checked = cleanKey(keyEl.value);
+  if (!q) { qEl.focus(); return; }
+  if (checked.error) {
+    keyEl.value = "";
+    keyEl.focus();
+    setError(checked.error);
+    return;
+  }
+  if (!checked.key) {
+    keyEl.focus();
+    keyEl.style.borderColor = "#e05030";
+    setTimeout(function () { keyEl.style.borderColor = ""; }, 2000);
+    return;
+  }
+  keyEl.value = checked.key;   // gesäubert zurückschreiben
+  var key = checked.key;
+  qEl.value = q;
+  goEl.disabled = true;
+  setLoading();
+  try {
+    current = await askClaude(q, key);
+    render(current);
+  } catch (e) {
+    setError(e.message);
+  } finally {
+    goEl.disabled = false;
+  }
+}
+
+/* ── Darstellung ──────────────────────────────────────────────────────────── */
+
+function card(k, v) {
+  return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + "</div></div>";
+}
+function grid(pairs) {
+  var cells = pairs.filter(function (p) { return p[1]; })
+                   .map(function (p) { return card(p[0], p[1]); }).join("");
+  return cells ? '<div class="grid">' + cells + "</div>" : "";
+}
+function tip(text) {
+  return '<div class="tip"><strong>Pacha Mama empfiehlt: </strong>' + esc(text) + "</div>";
+}
+
+function render(d) {
+  if (!d.found) {
+    var chips = (d.suggestions || []).map(function (s, i) {
+      return '<span class="chip" data-suggest="' + i + '"><em>' + esc(s.latin) + "</em>" +
+             (s.german ? "<span>— " + esc(s.german) + "</span>" : "") + "</span>";
+    }).join("");
+    out.innerHTML =
+      '<div class="suggest"><h3>🌿 „' + esc(d.latinName || qEl.value) + '" nicht gefunden</h3>' +
+      "<p>Meintest du eine dieser Pflanzen?</p>" +
+      '<div class="chips">' + (chips || "Keine Vorschläge.") + "</div></div>";
+    out.querySelectorAll("[data-suggest]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        search(d.suggestions[Number(el.getAttribute("data-suggest"))].latin);
+      });
+    });
+    return;
+  }
+
+  var pl = d.planting || {}, ca = d.care || {}, nb = d.neighbors || null;
+
+  var badges = (d.badges || []).map(function (b) {
+    var t = ["green","red","amber","blue","gray"].indexOf(b.type) >= 0 ? b.type : "gray";
+    return '<span class="badge b-' + t + '">' + esc(b.label) + "</span>";
+  }).join("");
+
+  var factPairs = Object.keys(d.facts || {}).map(function (k) { return [k, d.facts[k]]; });
+
+  function nbcol(title, list, cls, sym) {
+    var items = (list || []).map(function (p) {
+      return '<div class="nbitem"><span style="color:' + cls + ';font-weight:700">' + sym + " </span>" + esc(p) + "</div>";
+    }).join("");
+    return '<div class="nbcol"><div class="k" style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);margin-bottom:5px;font-family:system-ui,sans-serif">' +
+           title + "</div>" + items + "</div>";
+  }
+
+  out.innerHTML =
+    '<div class="result">' +
+      (d.typo ? '<div class="typo">ℹ️ Tippfehler erkannt — Ergebnis für: <em><strong>' + esc(d.latinName) + "</strong></em></div>" : "") +
+      '<div class="hero">' +
+        '<div class="imgbox"><div class="ph loading" id="ph">🌿</div><div class="credit" id="credit"></div></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="latin">' + esc(d.latinName) + "</div>" +
+          (d.commonName ? '<div class="common">' + esc(d.commonName) + "</div>" : "") +
+          '<div class="badges">' + badges + "</div>" +
+          '<div class="overview">' + esc(d.overview) + "</div>" +
+        "</div>" +
+      "</div>" +
+
+      '<div class="tabbar">' +
+        '<div class="tabbtns">' +
+          '<button class="tab on" data-tab="0" type="button">📋 Datenblatt</button>' +
+          '<button class="tab" data-tab="1" type="button">🌱 Pflanzen</button>' +
+          '<button class="tab" data-tab="2" type="button">💧 Pflege</button>' +
+        "</div>" +
+        '<button class="exportbtn" id="exportbtn" type="button">📋 .md Export</button>' +
+      "</div>" +
+
+      '<div class="panel on" data-panel="0">' +
+        grid(factPairs) +
+        (nb ? '<div class="subhead">Nachbarschaft</div><div class="nb">' +
+              nbcol("Gute Nachbarn", nb.good, "#2a5c1e", "✓") +
+              nbcol("Schlechte Nachbarn", nb.bad, "#8c2e18", "✗") + "</div>" : "") +
+      "</div>" +
+
+      '<div class="panel" data-panel="1">' +
+        grid([["Boden",pl.boden],["Standort",pl.standort],["Pflanzzeit",pl.pflanzzeit],["Düngung",pl.duengung]]) +
+        (pl.tip ? tip(pl.tip) : "") +
+      "</div>" +
+
+      '<div class="panel" data-panel="2">' +
+        grid([["Gießen",ca.giessen],["Schnitt",ca.schnitt],["Schädlinge",ca.schaedlinge],["Überwinterung",ca.winter]]) +
+        (ca.tip ? tip(ca.tip) : "") +
+      "</div>" +
+
+      '<div class="disclaimer">Alle Angaben basieren auf öffentlich verfügbaren wissenschaftlichen Quellen. ' +
+      "Pacha Mama ersetzt keine professionelle Beratung. Bei Giftpflanzen: Kinder und Tiere schützen.</div>" +
+    "</div>";
+
+  out.querySelectorAll("[data-tab]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var i = b.getAttribute("data-tab");
+      out.querySelectorAll("[data-tab]").forEach(function (x) { x.classList.toggle("on", x === b); });
+      out.querySelectorAll("[data-panel]").forEach(function (p) {
+        p.classList.toggle("on", p.getAttribute("data-panel") === i);
+      });
+    });
+  });
+
+  document.getElementById("exportbtn").addEventListener("click", openExport);
+
+  loadImage(d.wikiSearch, d.latinName, d.commonsFile);
+}
+
+async function loadImage(term, latin, commonsFile) {
+  var ph = document.getElementById("ph");
+  var cr = document.getElementById("credit");
+  var hit = null;
+  try { hit = await getPlantImage(term, latin, commonsFile); } catch (e) { /* unten abgefangen */ }
+  if (!document.getElementById("ph")) return;   // Ergebnis inzwischen ersetzt
+  if (hit && hit.src) {
+    var img = new Image();
+    img.alt = latin || "";
+    img.onload = function () {
+      if (ph.parentNode) ph.parentNode.replaceChild(img, ph);
+      if (cr) { cr.textContent = hit.credit; cr.title = hit.credit; }
+    };
+    img.onerror = function () {
+      ph.classList.remove("loading");
+      if (cr) cr.textContent = "kein Bild gefunden";
+    };
+    img.src = hit.src;
+  } else {
+    ph.classList.remove("loading");
+    if (cr) cr.textContent = "kein Bild gefunden";
+  }
+}
+
+/* ── Export-Modal ─────────────────────────────────────────────────────────── */
+
+function openExport() {
+  if (!current) return;
+  var md = buildMarkdown(current);
+  var fname = String(current.latinName || "pflanze").replace(/\s+/g, "_").toLowerCase() + ".md";
+
+  var overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML =
+    '<div class="modal">' +
+      '<div class="head"><div class="t">Markdown Export</div>' +
+        '<button type="button" id="copybtn">📋 Kopieren</button>' +
+        '<button type="button" class="x" id="closebtn">✕</button>' +
+      "</div>" +
+      '<div class="body"><textarea readonly spellcheck="false"></textarea></div>' +
+      '<div class="foot"><button type="button" id="dlbtn">⬇ .md speichern</button>' +
+      "<span>Text ist markiert — Strg+C, dann als Notiz einfügen.</span></div>" +
+    "</div>";
+  document.body.appendChild(overlay);
+
+  var ta = overlay.querySelector("textarea");
+  ta.value = md;
+  ta.focus();
+  ta.select();
+
+  function close() { overlay.remove(); }
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+  overlay.querySelector("#closebtn").addEventListener("click", close);
+
+  overlay.querySelector("#copybtn").addEventListener("click", async function () {
+    var b = this;
+    // 1. execCommand auf dem sichtbaren Feld — läuft auch dort, wo
+    //    navigator.clipboard gesperrt ist.
+    ta.focus(); ta.select();
+    try { ta.setSelectionRange(0, ta.value.length); } catch (e) {}
+    try {
+      if (document.execCommand("copy")) { flash(b, "✓ Kopiert!", true); return; }
+    } catch (e) {}
+    // 2. Moderne Clipboard-API als Zweitversuch.
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(md);
+        flash(b, "✓ Kopiert!", true);
+        return;
+      }
+    } catch (e) {}
+    // 3. Beides gesperrt: Text bleibt markiert, Strg+C.
+    flash(b, "Strg+C drücken", false);
+  });
+
+  // Echter Datei-Download — geht in dieser eigenständigen Datei, anders als
+  // im Artifact-Sandkasten, wo Blob-URLs verweigert werden.
+  overlay.querySelector("#dlbtn").addEventListener("click", function () {
+    var b = this;
+    try {
+      var blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      flash(b, "✓ " + fname, false);
+    } catch (e) {
+      flash(b, "nicht möglich — Text kopieren", false);
+    }
+  });
+}
+
+function flash(btn, text, ok) {
+  var old = btn.textContent;
+  btn.textContent = text;
+  if (ok) btn.classList.add("ok");
+  setTimeout(function () { btn.textContent = old; btn.classList.remove("ok"); }, 2000);
+}
+
+/* ── Verdrahtung ──────────────────────────────────────────────────────────── */
+
+goEl.addEventListener("click", function () { search(); });
+qEl.addEventListener("keydown", function (e) { if (e.key === "Enter") search(); });
+
+document.getElementById("examples").innerHTML =
+  EXAMPLES.map(function (e, i) { return '<span class="ex" data-ex="' + i + '">' + esc(e) + "</span>"; }).join("");
+document.querySelectorAll("[data-ex]").forEach(function (el) {
+  el.addEventListener("click", function () { search(EXAMPLES[Number(el.getAttribute("data-ex"))]); });
+});
+</script>
+</body>
+</html>
